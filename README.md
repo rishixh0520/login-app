@@ -10,6 +10,7 @@ A full-stack login application with user authentication, featuring a React front
 - **CORS Enabled**: Cross-origin resource sharing configured for frontend-backend communication
 - **Modern UI**: Built with React and Vite for fast development and optimized builds
 - **Database**: PostgreSQL integration for persistent data storage
+- **Apply for leave**: admin approves or denies the request.
 
 ## Tech Stack
 
@@ -40,7 +41,6 @@ LoginApp/
 │   ├── routes/        # API endpoints
 │   ├── uploads/       # User file uploads directory
 │   ├── server.js      # Express server entry point
-│   ├── .env           # Environment variables
 │   └── package.json
 │
 ├── frontend/
