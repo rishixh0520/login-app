@@ -14,6 +14,8 @@ export default function Auth() {
       if (isLogin) {
         const res = await api.post('/auth/login', { email: form.email, password: form.password });
         localStorage.setItem('token', res.data.token);
+        localStorage.setItem('role', res.data.user?.role || 'employee');
+        localStorage.setItem('user', JSON.stringify(res.data.user || null));
         navigate('/dashboard');
       } else {
         await api.post('/auth/signup', form);

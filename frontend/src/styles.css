@@ -43,3 +43,5 @@ select { width: 100%; background: rgba(15, 23, 42, 0.5); border: 1px solid var(-
 .thumb { width: 40px; height: 40px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border-color); }
 .alert { margin-top: 16px; padding: 12px; border-radius: 8px; background: rgba(59, 130, 246, 0.12); border: 1px solid var(--border-color); }
 .auth-subtitle { color: var(--text-muted); margin-top: -8px; margin-bottom: 20px; }
+.nav-item svg { flex-shrink: 0; }
+.w-full { width: 100%; }

@@ -6,15 +6,23 @@ import Dashboard from './pages/Dashboard';
 import Employees from './pages/Employees';
 import Master from './pages/Master';
 import Joins from './pages/Joins';
+import Leaves from './pages/Leaves';
 import './styles.css';
 
 function Layout({ children }) {
   const location = useLocation();
-  const handleLogout = () => { localStorage.removeItem('token'); window.location.href = "/"; };
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('role');
+    localStorage.removeItem('user');
+    window.location.href = "/";
+  };
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/employees', label: 'Employees', icon: Users },
     { path: '/master', label: 'Master Data', icon: Layers },
+    // Leave workflow is a first-class module in the enterprise menu.
+    { path: '/leaves', label: 'Leaves', icon: Users },
     { path: '/joins', label: 'SQL Joins', icon: Database },
   ];
   return (
@@ -49,6 +57,7 @@ export default function App() {
         <Route path="/dashboard" element={<Protected><Dashboard /></Protected>} />
         <Route path="/employees" element={<Protected><Employees /></Protected>} />
         <Route path="/master" element={<Protected><Master /></Protected>} />
+        <Route path="/leaves" element={<Protected><Leaves /></Protected>} />
         <Route path="/joins" element={<Protected><Joins /></Protected>} />
       </Routes>
     </Router>

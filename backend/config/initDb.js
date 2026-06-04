@@ -85,6 +85,72 @@ async function initDb() {
       );
     `);
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS leave_types(
+        id SERIAL PRIMARY KEY,
+        leave_name VARCHAR(100) UNIQUE NOT NULL,
+        total_days INT NOT NULL
+      );
+    `);
+
+    await client.query(`
+      INSERT INTO leave_types(leave_name, total_days)
+      VALUES ('Casual Leave', 12), ('Sick Leave', 10), ('Earned Leave', 18), ('Maternity Leave', 90)
+      ON CONFLICT (leave_name) DO NOTHING;
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS leave_balance(
+        id SERIAL PRIMARY KEY,
+        employee_id INT REFERENCES employee_profiles(id) ON DELETE CASCADE,
+        leave_type_id INT REFERENCES leave_types(id) ON DELETE CASCADE,
+        available_days INT NOT NULL,
+        UNIQUE (employee_id, leave_type_id)
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS leave_applications(
+        id SERIAL PRIMARY KEY,
+        employee_id INT REFERENCES employee_profiles(id) ON DELETE CASCADE,
+        leave_type_id INT REFERENCES leave_types(id) ON DELETE RESTRICT,
+        from_date DATE NOT NULL,
+        to_date DATE NOT NULL,
+        total_days INT NOT NULL,
+        reason TEXT NOT NULL,
+        status VARCHAR(30) NOT NULL DEFAULT 'pending_manager',
+        manager_remarks TEXT,
+        hr_remarks TEXT,
+        final_remarks TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS approval_history(
+        id SERIAL PRIMARY KEY,
+        leave_id INT REFERENCES leave_applications(id) ON DELETE CASCADE,
+        approved_by INT REFERENCES users(id) ON DELETE SET NULL,
+        approver_role VARCHAR(30) NOT NULL,
+        action VARCHAR(50) NOT NULL,
+        remarks TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS audit_logs(
+        id SERIAL PRIMARY KEY,
+        entity_type VARCHAR(50) NOT NULL,
+        entity_id INT,
+        action VARCHAR(100) NOT NULL,
+        performed_by INT REFERENCES users(id) ON DELETE SET NULL,
+        details JSONB,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
     await client.query("COMMIT");
     console.log("Database initialized and seeded successfully.");
   } catch (error) {
