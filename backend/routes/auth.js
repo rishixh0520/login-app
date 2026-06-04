@@ -36,7 +36,12 @@ router.post("/signup", async (req, res) => {
 
     res.status(201).json({
       message: "User Registered",
-      user: newUser.rows[0]
+      user: {
+        id: newUser.rows[0].id,
+        name: newUser.rows[0].name,
+        email: newUser.rows[0].email,
+        role: newUser.rows[0].role,
+      }
     });
 
   } catch (error) {
@@ -75,7 +80,10 @@ router.post("/login", async (req, res) => {
 
     const token = jwt.sign(
       {
-        id: user.rows[0].id
+        id: user.rows[0].id,
+        role: user.rows[0].role,
+        name: user.rows[0].name,
+        email: user.rows[0].email
       },
       process.env.JWT_SECRET,
       {
@@ -85,7 +93,13 @@ router.post("/login", async (req, res) => {
 
     res.json({
       message: "Login Success",
-      token
+      token,
+      user: {
+        id: user.rows[0].id,
+        name: user.rows[0].name,
+        email: user.rows[0].email,
+        role: user.rows[0].role,
+      }
     });
 
   } catch (error) {
