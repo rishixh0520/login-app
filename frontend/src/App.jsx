@@ -1,6 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, Database, Layers, LogOut } from 'lucide-react';
+import { LayoutDashboard, Users, Database, Layers, LogOut, Sparkles } from 'lucide-react';
 import Auth from './pages/Auth';
 import Dashboard from './pages/Dashboard';
 import Employees from './pages/Employees';
@@ -11,6 +11,8 @@ import './styles.css';
 
 function Layout({ children }) {
   const location = useLocation();
+  const user = JSON.parse(localStorage.getItem('user') || 'null');
+  const role = localStorage.getItem('role') || 'employee';
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('role');
@@ -28,18 +30,29 @@ function Layout({ children }) {
   return (
     <div className="layout">
       <aside className="sidebar">
-        <div className="sidebar-header"><h2>EmpSys</h2></div>
+        <div className="sidebar-header">
+          <div className="brand-mark"><Sparkles size={16} /></div>
+          <div>
+            <h2>EmpSys</h2>
+            <p>Workforce operations</p>
+          </div>
+        </div>
+        <div className="sidebar-user">
+          <span className="sidebar-user-label">Signed in as</span>
+          <strong>{user?.name || 'Team member'}</strong>
+          <span className="sidebar-user-role">{role}</span>
+        </div>
         <nav className="sidebar-nav">
           {navItems.map(item => {
             const Icon = item.icon;
             const isActive = location.pathname.startsWith(item.path);
             return (
               <Link key={item.path} to={item.path} className={`nav-item ${isActive ? 'active' : ''}`}>
-                <Icon size={20} /><span>{item.label}</span>
+                <Icon size={18} /><span>{item.label}</span>
               </Link>
             );
           })}
-          <button className="nav-item logout-btn" onClick={handleLogout}><LogOut size={20} /><span>Logout</span></button>
+          <button className="nav-item logout-btn" onClick={handleLogout}><LogOut size={18} /><span>Logout</span></button>
         </nav>
       </aside>
       <main className="main-content">{children}</main>

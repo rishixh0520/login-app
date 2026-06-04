@@ -9,11 +9,19 @@ router.get("/dashboard/stats", authMiddleware, async (req, res) => {
     const depCount = await pool.query("SELECT COUNT(*) FROM departments");
     const skillCount = await pool.query("SELECT COUNT(*) FROM skills");
     const imgCount = await pool.query("SELECT COUNT(*) FROM employee_images");
+    const leaveCount = await pool.query("SELECT COUNT(*) FROM leave_applications");
+    const pendingCount = await pool.query("SELECT COUNT(*) FROM leave_applications WHERE status IN ('pending_manager', 'pending_hr')");
+    const approvedCount = await pool.query("SELECT COUNT(*) FROM leave_applications WHERE status = 'approved'");
+    const rejectedCount = await pool.query("SELECT COUNT(*) FROM leave_applications WHERE status = 'rejected'");
     res.json({
       employees: parseInt(empCount.rows[0].count),
       departments: parseInt(depCount.rows[0].count),
       skills: parseInt(skillCount.rows[0].count),
       images: parseInt(imgCount.rows[0].count),
+      leaves: parseInt(leaveCount.rows[0].count),
+      pendingApprovals: parseInt(pendingCount.rows[0].count),
+      approvedLeaves: parseInt(approvedCount.rows[0].count),
+      rejectedLeaves: parseInt(rejectedCount.rows[0].count),
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

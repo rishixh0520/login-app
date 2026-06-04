@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../api';
+import { CalendarDays, ClipboardList, Users } from 'lucide-react';
 
 const initialForm = {
   leave_type_id: '',
@@ -56,15 +57,33 @@ export default function Leaves() {
 
   return (
     <div className="page-container">
-      <header className="page-header">
-        <h1>Leaves</h1>
-        <p>Apply for leave and review leave requests</p>
+      <header className="page-header dashboard-header">
+        <div>
+          <span className="eyebrow">Approval workflow</span>
+          <h1>Leaves</h1>
+          <p>Apply for leave and review leave requests</p>
+        </div>
+        <div className="header-chip">
+          <ClipboardList size={16} />
+          Workflow ready
+        </div>
       </header>
+
+      <div className="hero-band hero-band-soft">
+        <div className="hero-mini-cards">
+          <div className="mini-card"><CalendarDays size={16} /><span>Request leave in seconds</span></div>
+          <div className="mini-card"><Users size={16} /><span>Manager and HR review</span></div>
+        </div>
+        <p>Use the form below to submit a leave request and review the status history in the tables.</p>
+      </div>
 
       {message && <div className="alert">{message}</div>}
 
       <div className="card">
-        <h3>Apply Leave</h3>
+        <div className="section-title-row">
+          <h3>Apply Leave</h3>
+          <span className="section-caption">Dates are counted inclusively</span>
+        </div>
         <form className="form-grid" onSubmit={handleSubmit}>
           <div className="input-group">
             <label>Leave Type</label>
@@ -94,7 +113,10 @@ export default function Leaves() {
       </div>
 
       <div className="card">
-        <h3>My Leave Requests</h3>
+        <div className="section-title-row">
+          <h3>My Leave Requests</h3>
+          <span className="section-caption">Employee view</span>
+        </div>
         <table>
           <thead>
             <tr>
@@ -107,23 +129,28 @@ export default function Leaves() {
             </tr>
           </thead>
           <tbody>
-            {myLeaves.map((leave) => (
+            {myLeaves.length ? myLeaves.map((leave) => (
               <tr key={leave.id}>
                 <td>{leave.leave_name}</td>
                 <td>{leave.from_date}</td>
                 <td>{leave.to_date}</td>
                 <td>{leave.total_days}</td>
-                <td>{leave.status}</td>
+                <td><span className={`status-badge ${leave.status}`}>{leave.status.replace(/_/g, ' ')}</span></td>
                 <td>{leave.reason}</td>
               </tr>
-            ))}
+            )) : (
+              <tr><td className="table-empty" colSpan="6">No leave requests yet.</td></tr>
+            )}
           </tbody>
         </table>
       </div>
 
       {['admin', 'manager', 'hr'].includes(role) && (
         <div className="card">
-          <h3>All Leave Requests</h3>
+          <div className="section-title-row">
+            <h3>All Leave Requests</h3>
+            <span className="section-caption">Reviewer view</span>
+          </div>
           <table>
             <thead>
               <tr>
@@ -137,17 +164,19 @@ export default function Leaves() {
               </tr>
             </thead>
             <tbody>
-              {allLeaves.map((leave) => (
+              {allLeaves.length ? allLeaves.map((leave) => (
                 <tr key={leave.id}>
                   <td>{leave.employee_name}</td>
                   <td>{leave.leave_name}</td>
                   <td>{leave.from_date}</td>
                   <td>{leave.to_date}</td>
                   <td>{leave.total_days}</td>
-                  <td>{leave.status}</td>
+                  <td><span className={`status-badge ${leave.status}`}>{leave.status.replace(/_/g, ' ')}</span></td>
                   <td>{leave.reason}</td>
                 </tr>
-              ))}
+              )) : (
+                <tr><td className="table-empty" colSpan="7">No reviewer records available yet.</td></tr>
+              )}
             </tbody>
           </table>
         </div>
