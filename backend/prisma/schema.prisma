@@ -1,0 +1,190 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model approval_history {
+  id                 Int                 @id @default(autoincrement())
+  leave_id           Int?
+  approved_by        Int?
+  approver_role      String              @db.VarChar(30)
+  action             String              @db.VarChar(50)
+  remarks            String?
+  created_at         DateTime?           @default(now()) @db.Timestamp(6)
+  users              users?              @relation(fields: [approved_by], references: [id], onUpdate: NoAction)
+  leave_applications leave_applications? @relation(fields: [leave_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model asset_allocations {
+  id                Int                @id @default(autoincrement())
+  asset_id          Int?
+  employee_id       Int?
+  allocated_by      Int?
+  allocated_date    DateTime?          @db.Date
+  return_date       DateTime?          @db.Date
+  status            String?            @default("Allocated") @db.VarChar(50)
+  users             users?             @relation(fields: [allocated_by], references: [id], onUpdate: NoAction)
+  assets            assets?            @relation(fields: [asset_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  employee_profiles employee_profiles? @relation(fields: [employee_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model asset_history {
+  id         Int       @id @default(autoincrement())
+  asset_id   Int?
+  action     String?   @db.VarChar(100)
+  remarks    String?
+  created_by Int?
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+  assets     assets?   @relation(fields: [asset_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users      users?    @relation(fields: [created_by], references: [id], onUpdate: NoAction)
+}
+
+model assets {
+  id                Int                 @id @default(autoincrement())
+  asset_code        String?             @db.VarChar(50)
+  asset_name        String?             @db.VarChar(200)
+  asset_type        String?             @db.VarChar(100)
+  purchase_date     DateTime?           @db.Date
+  purchase_cost     Decimal?            @db.Decimal(12, 2)
+  status            String?             @default("Available") @db.VarChar(50)
+  asset_allocations asset_allocations[]
+  asset_history     asset_history[]
+}
+
+model attendance {
+  id                Int                @id @default(autoincrement())
+  employee_id       Int?
+  date              DateTime           @db.Date
+  clock_in          DateTime?          @db.Timestamp(6)
+  clock_out         DateTime?          @db.Timestamp(6)
+  status            String?            @default("Present") @db.VarChar(50)
+  remarks           String?
+  employee_profiles employee_profiles? @relation(fields: [employee_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([employee_id, date])
+}
+
+model audit_logs {
+  id           Int       @id @default(autoincrement())
+  entity_type  String    @db.VarChar(50)
+  entity_id    Int?
+  action       String    @db.VarChar(100)
+  performed_by Int?
+  details      Json?
+  created_at   DateTime? @default(now()) @db.Timestamp(6)
+  users        users?    @relation(fields: [performed_by], references: [id], onUpdate: NoAction)
+}
+
+model departments {
+  id                Int                 @id @default(autoincrement())
+  department_name   String?             @unique @db.VarChar(100)
+  employee_profiles employee_profiles[]
+}
+
+model employee_images {
+  id                Int                @id @default(autoincrement())
+  employee_id       Int?
+  image_url         String?
+  employee_profiles employee_profiles? @relation(fields: [employee_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model employee_profiles {
+  id                 Int                  @id @default(autoincrement())
+  user_id            Int?                 @unique
+  department_id      Int?
+  phone              String?              @db.VarChar(20)
+  address            String?
+  designation        String?              @db.VarChar(100)
+  salary             Decimal?             @db.Decimal(10, 2)
+  created_at         DateTime?            @default(now()) @db.Timestamp(6)
+  asset_allocations  asset_allocations[]
+  attendance         attendance[]
+  employee_images    employee_images[]
+  departments        departments?         @relation(fields: [department_id], references: [id], onUpdate: NoAction)
+  users              users?               @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  employee_skills    employee_skills[]
+  leave_applications leave_applications[]
+  leave_balance      leave_balance[]
+}
+
+model employee_skills {
+  id                Int                @id @default(autoincrement())
+  employee_id       Int?
+  skill_id          Int?
+  employee_profiles employee_profiles? @relation(fields: [employee_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  skills            skills?            @relation(fields: [skill_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([employee_id, skill_id])
+}
+
+model leave_applications {
+  id                Int                @id @default(autoincrement())
+  employee_id       Int?
+  leave_type_id     Int?
+  from_date         DateTime           @db.Date
+  to_date           DateTime           @db.Date
+  total_days        Int
+  reason            String
+  status            String             @default("pending_manager") @db.VarChar(30)
+  manager_remarks   String?
+  hr_remarks        String?
+  final_remarks     String?
+  created_at        DateTime?          @default(now()) @db.Timestamp(6)
+  updated_at        DateTime?          @default(now()) @db.Timestamp(6)
+  approval_history  approval_history[]
+  employee_profiles employee_profiles? @relation(fields: [employee_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  leave_types       leave_types?       @relation(fields: [leave_type_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+}
+
+model leave_balance {
+  id                Int                @id @default(autoincrement())
+  employee_id       Int?
+  leave_type_id     Int?
+  available_days    Int
+  employee_profiles employee_profiles? @relation(fields: [employee_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  leave_types       leave_types?       @relation(fields: [leave_type_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([employee_id, leave_type_id])
+}
+
+model leave_types {
+  id                 Int                  @id @default(autoincrement())
+  leave_name         String               @unique @db.VarChar(100)
+  total_days         Int
+  leave_applications leave_applications[]
+  leave_balance      leave_balance[]
+}
+
+model notifications {
+  id         Int       @id @default(autoincrement())
+  user_id    Int?
+  title      String?   @db.VarChar(200)
+  message    String?
+  is_read    Boolean?  @default(false)
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+  users      users?    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model skills {
+  id              Int               @id @default(autoincrement())
+  skill_name      String?           @unique @db.VarChar(100)
+  employee_skills employee_skills[]
+}
+
+model users {
+  id                Int                 @id @default(autoincrement())
+  name              String?             @db.VarChar(100)
+  email             String?             @unique @db.VarChar(100)
+  password          String?             @db.VarChar(255)
+  role              String?             @default("user") @db.VarChar(20)
+  approval_history  approval_history[]
+  asset_allocations asset_allocations[]
+  asset_history     asset_history[]
+  audit_logs        audit_logs[]
+  employee_profiles employee_profiles?
+  notifications     notifications[]
+}

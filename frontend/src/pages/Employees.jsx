@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { api, API_BASE_URL } from '../api';
+import FormInput from '../components/FormInput';
+import FormSelect from '../components/FormSelect';
 
 export default function Employees() {
   const [employees, setEmployees] = useState([]);
@@ -144,43 +146,46 @@ export default function Employees() {
         <h3>{editingId ? 'Edit Employee' : 'Create Employee'}</h3>
         <form onSubmit={handleSubmit} className="form-grid">
           {!editingId && (
-            <div className="input-group">
-              <label>User</label>
-              <select value={form.user_id} onChange={(e) => setForm({ ...form, user_id: e.target.value })}>
-                <option value="">Select user</option>
-                {availableUsers.map((u) => (
-                  <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
-                ))}
-              </select>
-            </div>
+            <FormSelect
+              label="User"
+              value={form.user_id}
+              onChange={(e) => setForm({ ...form, user_id: e.target.value })}
+              options={availableUsers.map(u => ({ value: u.id, label: `${u.name} (${u.email})` }))}
+            />
           )}
           {editingId && (
-            <div className="input-group">
-              <label>User</label>
-              <input value={`${editingEmployee?.employee_name || ''} ${editingEmployee?.employee_email ? `(${editingEmployee.employee_email})` : ''}`} readOnly />
-            </div>
+            <FormInput
+              label="User"
+              value={`${editingEmployee?.employee_name || ''} ${editingEmployee?.employee_email ? `(${editingEmployee.employee_email})` : ''}`}
+              onChange={() => {}}
+            />
           )}
-          <div className="input-group">
-            <label>Department</label>
-            <select value={form.department_id || ''} onChange={(e) => setForm({ ...form, department_id: e.target.value })}>
-              <option value="">Select department</option>
-              {departments.map((d) => (
-                <option key={d.id} value={d.id}>{d.department_name}</option>
-              ))}
-            </select>
-          </div>
-          <div className="input-group">
-            <label>Designation</label>
-            <input value={form.designation} onChange={(e) => setForm({ ...form, designation: e.target.value })} />
-          </div>
-          <div className="input-group">
-            <label>Phone</label>
-            <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-          </div>
-          <div className="input-group">
-            <label>Salary</label>
-            <input type="number" value={form.salary} onChange={(e) => setForm({ ...form, salary: e.target.value })} />
-          </div>
+          
+          <FormSelect
+            label="Department"
+            value={form.department_id || ''}
+            onChange={(e) => setForm({ ...form, department_id: e.target.value })}
+            options={departments.map(d => ({ value: d.id, label: d.department_name }))}
+          />
+          
+          <FormInput
+            label="Designation"
+            value={form.designation}
+            onChange={(e) => setForm({ ...form, designation: e.target.value })}
+          />
+
+          <FormInput
+            label="Phone"
+            value={form.phone}
+            onChange={(e) => setForm({ ...form, phone: e.target.value })}
+          />
+
+          <FormInput
+            label="Salary"
+            type="number"
+            value={form.salary}
+            onChange={(e) => setForm({ ...form, salary: e.target.value })}
+          />
           <div className="input-group full">
             <label>Address</label>
             <input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
