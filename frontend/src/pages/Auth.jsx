@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { api } from '../api';
 import { useNavigate } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
+import { loginSuccess } from '../redux/authSlice';
 import { ShieldCheck, Sparkles, Users, Layers } from 'lucide-react';
 
 export default function Auth() {
@@ -8,23 +10,33 @@ export default function Auth() {
   const [form, setForm] = useState({ name: '', email: '', password: '' });
   const [message, setMessage] = useState('');
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       if (isLogin) {
         const res = await api.post('/auth/login', { email: form.email, password: form.password });
-        localStorage.setItem('token', res.data.token);
-        localStorage.setItem('role', res.data.user?.role || 'employee');
-        localStorage.setItem('user', JSON.stringify(res.data.user || null));
+        dispatch(loginSuccess({ user: res.data.user, token: res.data.token }));
+        localStorage.setItem('refreshToken', res.data.refreshToken); // Save refresh token
         navigate('/dashboard');
       } else {
-        await api.post('/auth/signup', form);
-        setMessage('Registered successfully. Please login.');
+        const res = await api.post('/auth/signup', form);
+        setMessage(res.data.message || 'Registered successfully. Please check terminal to verify.');
         setIsLogin(true);
       }
     } catch (error) {
       setMessage(error.response?.data?.message || 'Authentication failed');
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!form.email) return setMessage("Please enter your email first to reset password.");
+    try {
+      const res = await api.post('/auth/forgot-password', { email: form.email });
+      setMessage(res.data.message);
+    } catch (error) {
+      setMessage(error.response?.data?.message || 'Failed to send reset link');
     }
   };
 
@@ -34,12 +46,12 @@ export default function Auth() {
         <section className="auth-hero">
           <div className="brand-mark brand-mark-large"><Sparkles size={18} /></div>
           <span className="eyebrow">i-SOFTZONE workforce suite</span>
-          <h2>{isLogin ? 'Run employee operations with clarity' : 'Create the next workspace account'}</h2>
+          <h2>{isLogin ? 'Built for real teams, not demo clicks' : 'Set up the next workspace account'}</h2>
           <p>
-            Manage staff, leave approvals, reports, and approvals from one polished control center.
+            Keep employee records, leave approvals, and reporting in one place without making the screen feel heavy.
           </p>
           <div className="feature-list">
-            <div><ShieldCheck size={16} />JWT security</div>
+            <div><ShieldCheck size={16} />Simple sign in</div>
             <div><Users size={16} />Employee management</div>
             <div><Layers size={16} />Leave workflow</div>
           </div>
@@ -54,17 +66,26 @@ export default function Auth() {
             {!isLogin && (
               <div className="input-group">
                 <label>Name</label>
-                <input required value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
+                <input required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
               </div>
             )}
             <div className="input-group">
               <label>Email</label>
-              <input required type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} />
+              <input required type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
             </div>
             <div className="input-group">
               <label>Password</label>
-              <input required type="password" value={form.password} onChange={e => setForm({...form, password: e.target.value})} />
+              <input required type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} />
             </div>
+            
+            {isLogin && (
+              <div style={{ textAlign: 'right', marginBottom: '10px' }}>
+                <button type="button" onClick={handleForgotPassword} style={{ background: 'none', border: 'none', color: '#00e5ff', cursor: 'pointer', fontSize: '12px' }}>
+                  Forgot Password?
+                </button>
+              </div>
+            )}
+
             <button type="submit" className="btn-primary w-full">{isLogin ? 'Login' : 'Sign Up'}</button>
           </form>
 

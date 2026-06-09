@@ -55,6 +55,16 @@ export default function Leaves() {
     }
   };
 
+  const handleReview = async (id, action) => {
+    try {
+      await api.post(`/leaves/${id}/review`, { action, remarks: `Reviewed by ${role}` });
+      setMessage(`Leave application ${action}`);
+      await loadData();
+    } catch (error) {
+      setMessage(error.response?.data?.message || 'Failed to review leave application');
+    }
+  };
+
   return (
     <div className="page-container">
       <header className="page-header dashboard-header">
@@ -71,10 +81,10 @@ export default function Leaves() {
 
       <div className="hero-band hero-band-soft">
         <div className="hero-mini-cards">
-          <div className="mini-card"><CalendarDays size={16} /><span>Request leave in seconds</span></div>
-          <div className="mini-card"><Users size={16} /><span>Manager and HR review</span></div>
+          <div className="mini-card"><CalendarDays size={16} /><span>Request leave without the back-and-forth</span></div>
+          <div className="mini-card"><Users size={16} /><span>Manager and HR review it in order</span></div>
         </div>
-        <p>Use the form below to submit a leave request and review the status history in the tables.</p>
+        <p>Submit a request, then check how it moves through the queue without having to guess what happened.</p>
       </div>
 
       {message && <div className="alert">{message}</div>}
@@ -161,6 +171,7 @@ export default function Leaves() {
                 <th>Days</th>
                 <th>Status</th>
                 <th>Reason</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -173,9 +184,19 @@ export default function Leaves() {
                   <td>{leave.total_days}</td>
                   <td><span className={`status-badge ${leave.status}`}>{leave.status.replace(/_/g, ' ')}</span></td>
                   <td>{leave.reason}</td>
+                  <td>
+                    {leave.status === 'pending_manager' || leave.status.startsWith('pending') ? (
+                      <div className="action-buttons" style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button className="btn-primary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }} onClick={() => handleReview(leave.id, 'approved')}>Approve</button>
+                        <button className="btn-secondary" style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }} onClick={() => handleReview(leave.id, 'rejected')}>Reject</button>
+                      </div>
+                    ) : (
+                      <span style={{ color: 'var(--text-tertiary)' }}>-</span>
+                    )}
+                  </td>
                 </tr>
               )) : (
-                <tr><td className="table-empty" colSpan="7">No reviewer records available yet.</td></tr>
+                <tr><td className="table-empty" colSpan="8">No reviewer records available yet.</td></tr>
               )}
             </tbody>
           </table>

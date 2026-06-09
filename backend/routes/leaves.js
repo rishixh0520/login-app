@@ -100,4 +100,47 @@ router.post("/apply", authMiddleware, async (req, res) => {
   }
 });
 
+router.post("/:id/review", authMiddleware, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { action, remarks } = req.body;
+    const { id } = req.params;
+
+    const isReviewer = allowedReviewerRoles.includes(req.user.role);
+    if (!isReviewer) {
+      return res.status(403).json({ message: "Forbidden for this role" });
+    }
+
+    if (!["approved", "rejected"].includes(action)) {
+      return res.status(400).json({ message: "Invalid action" });
+    }
+
+    await client.query("BEGIN");
+
+    const leaveRes = await client.query("SELECT * FROM leave_applications WHERE id = $1", [id]);
+    if (leaveRes.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Leave application not found" });
+    }
+
+    await client.query(
+      "UPDATE leave_applications SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+      [action, id]
+    );
+
+    await client.query(
+      "INSERT INTO approval_history(leave_id, approved_by, approver_role, action, remarks) VALUES ($1, $2, $3, $4, $5)",
+      [id, req.user.id, req.user.role, action, remarks || ""]
+    );
+
+    await client.query("COMMIT");
+    res.json({ message: `Leave application ${action} successfully` });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    res.status(500).json({ message: error.message });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router;

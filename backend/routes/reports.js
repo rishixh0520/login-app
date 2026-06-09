@@ -10,9 +10,21 @@ router.get("/dashboard/stats", authMiddleware, async (req, res) => {
     const skillCount = await pool.query("SELECT COUNT(*) FROM skills");
     const imgCount = await pool.query("SELECT COUNT(*) FROM employee_images");
     const leaveCount = await pool.query("SELECT COUNT(*) FROM leave_applications");
-    const pendingCount = await pool.query("SELECT COUNT(*) FROM leave_applications WHERE status IN ('pending_manager', 'pending_hr')");
-    const approvedCount = await pool.query("SELECT COUNT(*) FROM leave_applications WHERE status = 'approved'");
-    const rejectedCount = await pool.query("SELECT COUNT(*) FROM leave_applications WHERE status = 'rejected'");
+    const pendingCount = await pool.query("SELECT COUNT(*) FROM leave_applications WHERE status IN ('pending_manager', 'pending_hr', 'Pending')");
+    const approvedCount = await pool.query("SELECT COUNT(*) FROM leave_applications WHERE status IN ('approved', 'Approved')");
+    const rejectedCount = await pool.query("SELECT COUNT(*) FROM leave_applications WHERE status IN ('rejected', 'Rejected')");
+    const salaryResult = await pool.query("SELECT SUM(salary) as total_salary FROM employee_profiles");
+    
+    // Attendance Stats for Today
+    const today = new Date().toISOString().split('T')[0];
+    const presentCountRes = await pool.query(
+      "SELECT COUNT(DISTINCT employee_id) FROM attendance WHERE date = $1 AND status NOT IN ('Absent', 'On Leave')",
+      [today]
+    );
+    const presentToday = parseInt(presentCountRes.rows[0].count);
+    const totalEmps = parseInt(empCount.rows[0].count);
+    const absentToday = totalEmps - presentToday;
+    const attendancePercentage = totalEmps > 0 ? Math.round((presentToday / totalEmps) * 100) : 0;
     res.json({
       employees: parseInt(empCount.rows[0].count),
       departments: parseInt(depCount.rows[0].count),
@@ -22,6 +34,10 @@ router.get("/dashboard/stats", authMiddleware, async (req, res) => {
       pendingApprovals: parseInt(pendingCount.rows[0].count),
       approvedLeaves: parseInt(approvedCount.rows[0].count),
       rejectedLeaves: parseInt(rejectedCount.rows[0].count),
+      totalSalary: salaryResult.rows[0].total_salary || 0,
+      presentToday,
+      absentToday,
+      attendancePercentage
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

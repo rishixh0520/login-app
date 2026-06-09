@@ -34,7 +34,21 @@ async function initDb() {
         name VARCHAR(100),
         email VARCHAR(100) UNIQUE,
         password VARCHAR(255),
-        role VARCHAR(20) DEFAULT 'user'
+        role VARCHAR(20) DEFAULT 'user',
+        verified BOOLEAN DEFAULT FALSE
+      );
+      
+      CREATE TABLE IF NOT EXISTS password_reset (
+        id SERIAL PRIMARY KEY,
+        user_id INT REFERENCES users(id),
+        token TEXT,
+        expires_at TIMESTAMP
+      );
+      
+      CREATE TABLE IF NOT EXISTS refresh_tokens (
+        id SERIAL PRIMARY KEY,
+        user_id INT REFERENCES users(id),
+        token TEXT
       );
     `);
 
@@ -163,18 +177,119 @@ async function initDb() {
     await client.query(`
       CREATE TABLE IF NOT EXISTS audit_logs(
         id SERIAL PRIMARY KEY,
-        entity_type VARCHAR(50) NOT NULL,
-        entity_id INT,
-        action VARCHAR(100) NOT NULL,
+        table_name VARCHAR(100),
+        action_type VARCHAR(50),
+        record_id INT,
+        old_data JSONB,
+        new_data JSONB,
         performed_by INT REFERENCES users(id) ON DELETE SET NULL,
-        details JSONB,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+    `);
+
+    // Day 5 Advanced Tables
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS assets (
+        id SERIAL PRIMARY KEY,
+        asset_code VARCHAR(50),
+        asset_name VARCHAR(200),
+        asset_type VARCHAR(100),
+        purchase_date DATE,
+        purchase_cost NUMERIC(12,2),
+        status VARCHAR(50) DEFAULT 'Available'
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS asset_allocations (
+        id SERIAL PRIMARY KEY,
+        asset_id INT REFERENCES assets(id) ON DELETE CASCADE,
+        employee_id INT REFERENCES employee_profiles(id) ON DELETE CASCADE,
+        allocated_by INT REFERENCES users(id) ON DELETE SET NULL,
+        allocated_date DATE,
+        return_date DATE,
+        status VARCHAR(50) DEFAULT 'Allocated'
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS asset_history (
+        id SERIAL PRIMARY KEY,
+        asset_id INT REFERENCES assets(id) ON DELETE CASCADE,
+        action VARCHAR(100),
+        remarks TEXT,
+        created_by INT REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS notifications (
+        id SERIAL PRIMARY KEY,
+        user_id INT REFERENCES users(id) ON DELETE CASCADE,
+        title VARCHAR(200),
+        message TEXT,
+        is_read BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS attendance (
+        id SERIAL PRIMARY KEY,
+        employee_id INT REFERENCES employee_profiles(id) ON DELETE CASCADE,
+        date DATE NOT NULL,
+        clock_in TIMESTAMP,
+        clock_out TIMESTAMP,
+        status VARCHAR(50) DEFAULT 'Present',
+        remarks TEXT,
+        UNIQUE(employee_id, date)
+      );
+    `);
+
+    // Create View: employee_summary
+    await client.query(`
+      CREATE OR REPLACE VIEW employee_summary AS
+      SELECT
+        u.name,
+        d.department_name,
+        ep.designation,
+        ep.salary,
+        u.email
+      FROM users u
+      JOIN employee_profiles ep ON u.id = ep.user_id
+      JOIN departments d ON d.id = ep.department_id;
+    `);
+
+    // Create Stored Procedure / Function: calculate_leave_balance
+    // Example logic: just returns balance for now, can be expanded
+    await client.query(`
+      CREATE OR REPLACE FUNCTION calculate_leave_balance(emp_id INT, l_type_id INT)
+      RETURNS INT AS $$
+      DECLARE
+        balance INT;
+      BEGIN
+        SELECT available_days INTO balance 
+        FROM leave_balance 
+        WHERE employee_id = emp_id AND leave_type_id = l_type_id;
+        
+        IF balance IS NULL THEN
+          RETURN 0;
+        END IF;
+        
+        RETURN balance;
+      END;
+      $$ LANGUAGE plpgsql;
     `);
 
     // Reset the demo tables so the provided company dataset stays deterministic on every restart.
     await client.query(`
       TRUNCATE TABLE
+        attendance,
+        asset_history,
+        asset_allocations,
+        assets,
+        notifications,
         approval_history,
         leave_applications,
         leave_balance,
@@ -189,40 +304,37 @@ async function initDb() {
     `);
 
     const demoPasswordHash = await bcrypt.hash("123456", 10);
+    await client.query("TRUNCATE TABLE password_reset, refresh_tokens, audit_logs, notifications, asset_history, asset_allocations, assets, attendance, approval_history, leave_applications, leave_balance, leave_types, employee_skills, skills, employee_profiles, departments, users RESTART IDENTITY CASCADE");
 
-    await bulkInsert(
-      client,
-      "departments",
-      ["department_name"],
-      [
-        ["Software Development"],
-        ["Quality Assurance"],
-        ["Human Resources"],
-        ["Finance"],
-        ["Digital Marketing"],
-        ["Sales"],
-        ["Operations"],
-        ["Technical Support"],
-      ]
-    );
+    console.log("Seeding data...");
 
-    await bulkInsert(
-      client,
-      "users",
-      ["name", "email", "password", "role"],
-      [
-        ["Pranay Gupta", "pranay@isoftzone.com", demoPasswordHash, "admin"],
-        ["Rahul Sharma", "rahul@isoftzone.com", demoPasswordHash, "manager"],
-        ["Priya Verma", "priya@isoftzone.com", demoPasswordHash, "hr"],
-        ["Amit Patel", "amit@isoftzone.com", demoPasswordHash, "employee"],
-        ["Neha Jain", "neha@isoftzone.com", demoPasswordHash, "employee"],
-        ["Rohit Singh", "rohit@isoftzone.com", demoPasswordHash, "employee"],
-        ["Anjali Gupta", "anjali@isoftzone.com", demoPasswordHash, "employee"],
-        ["Vikas Mehta", "vikas@isoftzone.com", demoPasswordHash, "employee"],
-        ["Pooja Shah", "pooja@isoftzone.com", demoPasswordHash, "employee"],
-        ["Sandeep Kumar", "sandeep@isoftzone.com", demoPasswordHash, "employee"],
-      ]
-    );
+    // 1. Departments
+    const departments = [
+      ["Software Development"],
+      ["Quality Assurance"],
+      ["Human Resources"],
+      ["Finance"],
+      ["Digital Marketing"],
+      ["Sales"],
+      ["Operations"],
+      ["Technical Support"],
+    ];
+    await bulkInsert(client, "departments", ["department_name"], departments);
+
+    // 2. Users (Adding verified = true for seeded users)
+    const users = [
+      ["Pranay Gupta", "pranay@isoftzone.com", await bcrypt.hash("123456", 10), "admin", true],
+      ["Rahul Sharma", "rahul@isoftzone.com", await bcrypt.hash("123456", 10), "manager", true],
+      ["Priya Verma", "priya@isoftzone.com", await bcrypt.hash("123456", 10), "hr", true],
+      ["Amit Patel", "amit@isoftzone.com", await bcrypt.hash("123456", 10), "employee", true],
+      ["Neha Jain", "neha@isoftzone.com", await bcrypt.hash("123456", 10), "employee", true],
+      ["Rohit Singh", "rohit@isoftzone.com", await bcrypt.hash("123456", 10), "employee", true],
+      ["Anjali Gupta", "anjali@isoftzone.com", await bcrypt.hash("123456", 10), "employee", true],
+      ["Vikas Mehta", "vikas@isoftzone.com", await bcrypt.hash("123456", 10), "employee", true],
+      ["Pooja Shah", "pooja@isoftzone.com", await bcrypt.hash("123456", 10), "employee", true],
+      ["Sandeep Kumar", "sandeep@isoftzone.com", await bcrypt.hash("123456", 10), "employee", true],
+    ];
+    await bulkInsert(client, "users", ["name", "email", "password", "role", "verified"], users);
 
     await bulkInsert(
       client,
@@ -333,6 +445,28 @@ async function initDb() {
         [3, 2, "manager", "approved", "Manager Approved"],
         [3, 3, "hr", "approved", "HR Approved"],
         [5, 2, "manager", "rejected", "Insufficient Reason"],
+      ]
+    );
+
+    await bulkInsert(
+      client,
+      "assets",
+      ["asset_code", "asset_name", "asset_type", "purchase_date", "purchase_cost", "status"],
+      [
+        ["LPT-001", "MacBook Pro M2", "Laptop", "2026-01-10", 1500.00, "Allocated"],
+        ["LPT-002", "Dell XPS 15", "Laptop", "2026-02-15", 1200.00, "Available"],
+        ["MNT-001", "LG 27 inch 4K", "Monitor", "2026-03-01", 300.00, "Allocated"],
+        ["MOU-001", "Logitech MX Master 3", "Mouse", "2026-03-05", 100.00, "Available"]
+      ]
+    );
+
+    await bulkInsert(
+      client,
+      "asset_allocations",
+      ["asset_id", "employee_id", "allocated_by", "allocated_date", "status"],
+      [
+        [1, 4, 2, "2026-04-01", "Allocated"],
+        [3, 4, 2, "2026-04-01", "Allocated"]
       ]
     );
 
