@@ -833,6 +833,176 @@ tbody tr:hover {
 	flex: 1;
 }
 
+.attendance-grid {
+	display: grid;
+	grid-template-columns: minmax(320px, 0.95fr) minmax(420px, 1.35fr);
+	gap: 24px;
+	align-items: stretch;
+}
+
+.attendance-clock-card {
+	background:
+		linear-gradient(140deg, rgba(16, 185, 129, 0.12), rgba(14, 165, 233, 0.06)),
+		var(--panel-bg);
+	backdrop-filter: var(--glass-filter);
+	border: 1px solid rgba(16, 185, 129, 0.24);
+	border-radius: 16px;
+	padding: 30px;
+	box-shadow: var(--shadow);
+	display: flex;
+	flex-direction: column;
+	gap: 22px;
+	min-height: 390px;
+}
+
+.attendance-time-block {
+	text-align: center;
+	padding: 18px 10px;
+}
+
+.attendance-time {
+	font-family: 'Outfit', sans-serif;
+	font-size: clamp(2.5rem, 6vw, 4.4rem);
+	font-weight: 800;
+	line-height: 1;
+	color: #ffffff;
+	letter-spacing: 0;
+	text-shadow: 0 0 24px rgba(16, 185, 129, 0.26);
+}
+
+.attendance-date {
+	color: var(--text-muted);
+	font-size: 1rem;
+	margin-top: 12px;
+}
+
+.attendance-status-panel,
+.attendance-session {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	border: 1px solid var(--border-light);
+	background: rgba(0, 0, 0, 0.22);
+	border-radius: 12px;
+	padding: 16px;
+}
+
+.attendance-status-panel span,
+.attendance-session span,
+.attendance-mini-stats span {
+	color: var(--text-muted);
+	font-size: 0.85rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 1px;
+}
+
+.attendance-status-panel strong {
+	display: block;
+	margin-top: 4px;
+	font-size: 1.25rem;
+	color: #ffffff;
+}
+
+.attendance-session {
+	justify-content: flex-start;
+}
+
+.attendance-session svg {
+	color: var(--success);
+}
+
+.attendance-session strong {
+	display: block;
+	margin-top: 4px;
+	font-size: 1.8rem;
+	color: var(--primary);
+	letter-spacing: 0;
+}
+
+.attendance-actions {
+	margin-top: auto;
+	display: flex;
+}
+
+.attendance-action-btn {
+	width: 100%;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 10px;
+	min-height: 56px;
+}
+
+.attendance-clockout {
+	background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+	box-shadow: 0 4px 15px rgba(245, 158, 11, 0.35);
+}
+
+.attendance-live-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	padding: 10px 14px;
+	border-radius: 20px;
+	background: rgba(255, 255, 255, 0.05);
+	border: 1px solid var(--border-light);
+	color: var(--text-muted);
+	font-weight: 700;
+	white-space: nowrap;
+}
+
+.attendance-live-chip.is-live {
+	color: #34d399;
+	border-color: rgba(16, 185, 129, 0.35);
+	background: rgba(16, 185, 129, 0.1);
+}
+
+.attendance-history-card {
+	min-width: 0;
+}
+
+.attendance-percent {
+	font-size: 1.15rem;
+	font-weight: 800;
+}
+
+.attendance-percent.good {
+	color: var(--success);
+}
+
+.attendance-percent.needs-attention {
+	color: var(--warning);
+}
+
+.attendance-mini-stats {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 12px;
+	margin-bottom: 16px;
+}
+
+.attendance-mini-stats div {
+	border: 1px solid var(--border-light);
+	background: rgba(255, 255, 255, 0.04);
+	border-radius: 10px;
+	padding: 12px;
+	display: grid;
+	gap: 6px;
+	min-width: 0;
+}
+
+.attendance-mini-stats svg {
+	color: var(--primary);
+}
+
+.attendance-mini-stats strong {
+	font-size: 1.15rem;
+	color: #ffffff;
+	white-space: nowrap;
+}
+
 .nav-item svg {
 	flex-shrink: 0;
 	filter: drop-shadow(0 0 2px rgba(255,255,255,0.2));
@@ -847,12 +1017,14 @@ tbody tr:hover {
 	.sidebar-nav { flex-direction: row; flex-wrap: wrap; }
 	.auth-split { grid-template-columns: 1fr; }
 	.auth-hero { border-right: none; border-bottom: 1px solid var(--border-light); padding: 40px; }
-	.two-col, .form-grid { grid-template-columns: 1fr; }
+	.two-col, .form-grid, .attendance-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 600px) {
 	.dashboard-header { flex-direction: column; align-items: flex-start; }
 	.hero-band { flex-direction: column; align-items: flex-start; }
+	.attendance-mini-stats { grid-template-columns: 1fr; }
+	.attendance-clock-card { padding: 22px; }
 }
 
 /* CUSTOM SCROLLBAR FOR REALISTIC FEEL */

@@ -1,13 +1,20 @@
 const attendanceRepository = require('../repositories/attendance.repository');
 const pool = require('../../config/db');
 
+function getLocalDateKey(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 class AttendanceService {
   async clockIn(userId) {
     const empResult = await pool.query('SELECT id FROM employee_profiles WHERE user_id = $1', [userId]);
     if (!empResult.rows.length) throw { statusCode: 404, message: 'Employee profile not found', isOperational: true };
     const employeeId = empResult.rows[0].id;
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateKey();
     const now = new Date();
 
     const existing = await attendanceRepository.getAttendanceByEmployeeAndDate(employeeId, today);
@@ -23,7 +30,7 @@ class AttendanceService {
     if (!empResult.rows.length) throw { statusCode: 404, message: 'Employee profile not found', isOperational: true };
     const employeeId = empResult.rows[0].id;
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateKey();
     const now = new Date();
 
     const existing = await attendanceRepository.getAttendanceByEmployeeAndDate(employeeId, today);

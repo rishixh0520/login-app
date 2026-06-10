@@ -1,6 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
-import { Clock, CheckCircle, Play, Square, AlertCircle, Calendar, Search, Filter, Edit3, X, Save } from 'lucide-react';
+import { CheckCircle, AlertCircle, Calendar, Search, Edit3, X, Save, TimerReset, LogIn, LogOut, Activity, UserCheck } from 'lucide-react';
+
+const getLocalDateKey = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 export default function Attendance() {
   const [history, setHistory] = useState([]);
@@ -36,9 +43,12 @@ export default function Attendance() {
       setHistory(mineRes.data.records);
       setPercentage(mineRes.data.percentage);
       
-      // Update today's record independently of filters (we always want to know if they're clocked in today)
-      const todayDate = new Date().toISOString().split('T')[0];
-      const today = mineRes.data.records.find(r => r.date.startsWith(todayDate));
+      const todayDate = getLocalDateKey();
+      let today = mineRes.data.records.find(r => r.date.startsWith(todayDate));
+      if ((empStartDate || empEndDate) && !today) {
+        const todayRes = await api.get(`/attendance/mine?startDate=${todayDate}&endDate=${todayDate}`);
+        today = todayRes.data.records.find(r => r.date.startsWith(todayDate));
+      }
       setTodayRecord(today || null);
     } catch (error) {
       console.error(error);
@@ -151,9 +161,16 @@ export default function Attendance() {
 
   return (
     <div className="page-container" style={{ position: 'relative' }}>
-      <header className="page-header">
-        <h1>Attendance Interface</h1>
-        <p>Real-time presence tracking and shift management</p>
+      <header className="page-header dashboard-header">
+        <div>
+          <span className="eyebrow">Attendance</span>
+          <h1>Workday Clock</h1>
+          <p>Clock in when the shift starts, clock out when the workday is complete.</p>
+        </div>
+        <div className={`attendance-live-chip ${isWorking ? 'is-live' : ''}`}>
+          <Activity size={16} />
+          {isWorking ? 'Live shift running' : isDone ? 'Shift completed' : 'Ready to start'}
+        </div>
       </header>
 
       {message && (
@@ -162,60 +179,79 @@ export default function Attendance() {
         </div>
       )}
 
-      <div className="two-col">
-        {/* Left Column: Clock In/Out Terminal */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', minHeight: '350px' }}>
-          <div style={{ marginBottom: '20px' }}>
-            <span className="eyebrow">Current System Time</span>
-            <div style={{ fontSize: '3.5rem', fontWeight: '800', fontFamily: 'Outfit', background: 'linear-gradient(90deg, #00f0ff, #b026ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', textShadow: '0 0 20px rgba(0,240,255,0.2)' }}>
+      <div className="attendance-grid">
+        <section className="attendance-clock-card">
+          <div className="attendance-time-block">
+            <span className="eyebrow">Current time</span>
+            <div className="attendance-time">
               {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
             </div>
-            <div style={{ color: 'var(--text-muted)', fontSize: '1.1rem', marginTop: '5px' }}>
+            <div className="attendance-date">
               {currentTime.toLocaleDateString([], { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             </div>
           </div>
 
-          <div style={{ padding: '20px', background: 'rgba(0,0,0,0.3)', borderRadius: '12px', border: '1px solid var(--border-light)', width: '100%', marginBottom: '20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-              <span style={{ color: 'var(--text-muted)' }}>Status:</span>
-              <span className={`status-badge ${isWorking ? 'approved' : (isDone ? 'available' : 'rejected')}`} style={{ fontSize: '1rem' }}>
-                {isDone ? `Completed: ${todayRecord.status}` : (isWorking ? 'Active Shift' : 'Offline')}
-              </span>
+          <div className="attendance-status-panel">
+            <div>
+              <span>Today status</span>
+              <strong>{isDone ? todayRecord.status : isWorking ? 'Active shift' : 'Not clocked in'}</strong>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ color: 'var(--text-muted)' }}>Session Time:</span>
-              <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: isWorking ? 'var(--primary)' : 'var(--text-main)' }}>{elapsedTime}</span>
+            <span className={`status-badge ${isWorking ? 'approved' : (isDone ? 'available' : 'rejected')}`}>
+              {isWorking ? 'Clocked in' : isDone ? 'Clocked out' : 'Offline'}
+            </span>
+          </div>
+
+          <div className="attendance-session">
+            <TimerReset size={20} />
+            <div>
+              <span>{isDone ? 'Total time' : 'Session time'}</span>
+              <strong>{elapsedTime}</strong>
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '15px', width: '100%' }}>
+          <div className="attendance-actions">
             {!isWorking && !isDone && (
-              <button className="btn-primary" style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', fontSize: '1.2rem', padding: '15px' }} onClick={handleClockIn}>
-                <Play size={24} /> INITIALIZE SHIFT
+              <button className="btn-primary attendance-action-btn" onClick={handleClockIn}>
+                <LogIn size={22} /> Clock In
               </button>
             )}
             
             {isWorking && (
-              <button className="btn-danger" style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', fontSize: '1.2rem', padding: '15px', background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', boxShadow: '0 4px 15px rgba(245, 158, 11, 0.4)' }} onClick={handleClockOut}>
-                <Square size={24} /> TERMINATE SHIFT
+              <button className="btn-danger attendance-action-btn attendance-clockout" onClick={handleClockOut}>
+                <LogOut size={22} /> Clock Out
               </button>
             )}
 
             {isDone && (
-              <button className="btn-secondary" style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', fontSize: '1.2rem', padding: '15px', opacity: 0.5 }} disabled>
-                <CheckCircle size={24} /> SHIFT COMPLETE
+              <button className="btn-secondary attendance-action-btn" disabled>
+                <CheckCircle size={22} /> Shift Complete
               </button>
             )}
           </div>
-        </div>
+        </section>
 
-        {/* Right Column: Personal History */}
-        <div className="card">
+        <section className="card attendance-history-card">
           <div className="section-title-row" style={{ marginBottom: '10px' }}>
-            <h3><Calendar size={20} style={{ verticalAlign: 'middle', marginRight: '8px' }} /> My Recent Logs</h3>
-            <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: percentage >= 80 ? 'var(--success)' : 'var(--warning)' }}>
-              {percentage}% MTD
-            </span>
+            <h3><Calendar size={20} style={{ verticalAlign: 'middle', marginRight: '8px' }} /> My Attendance</h3>
+            <span className={`attendance-percent ${percentage >= 80 ? 'good' : 'needs-attention'}`}>{percentage}% MTD</span>
+          </div>
+
+          <div className="attendance-mini-stats">
+            <div>
+              <LogIn size={16} />
+              <span>Clock in</span>
+              <strong>{todayRecord?.clock_in ? new Date(todayRecord.clock_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}</strong>
+            </div>
+            <div>
+              <LogOut size={16} />
+              <span>Clock out</span>
+              <strong>{todayRecord?.clock_out ? new Date(todayRecord.clock_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}</strong>
+            </div>
+            <div>
+              <UserCheck size={16} />
+              <span>Records</span>
+              <strong>{history.length}</strong>
+            </div>
           </div>
           
           <div className="inline-form" style={{ marginBottom: '15px' }}>
@@ -253,7 +289,7 @@ export default function Attendance() {
               </tbody>
             </table>
           </div>
-        </div>
+        </section>
       </div>
 
       {/* Admin/Manager Global View */}

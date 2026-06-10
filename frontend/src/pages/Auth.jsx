@@ -7,7 +7,7 @@ import { ShieldCheck, Sparkles, Users, Layers } from 'lucide-react';
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
-  const [form, setForm] = useState({ name: '', email: '', password: '' });
+  const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '' });
   const [message, setMessage] = useState('');
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -21,9 +21,20 @@ export default function Auth() {
         localStorage.setItem('refreshToken', res.data.refreshToken); // Save refresh token
         navigate('/dashboard');
       } else {
-        const res = await api.post('/auth/signup', form);
-        setMessage(res.data.message || 'Registered successfully. Please check terminal to verify.');
+        if (form.password !== form.confirmPassword) {
+          setMessage('Confirm password must match password');
+          return;
+        }
+        const res = await api.post('/auth/signup', {
+          name: form.name,
+          email: form.email,
+          password: form.password,
+          confirmPassword: form.confirmPassword,
+          role: 'employee'
+        });
+        setMessage(res.data.message || 'Account created successfully. You can log in now.');
         setIsLogin(true);
+        setForm({ name: '', email: form.email, password: '', confirmPassword: '' });
       }
     } catch (error) {
       setMessage(error.response?.data?.message || 'Authentication failed');
@@ -77,6 +88,17 @@ export default function Auth() {
               <label>Password</label>
               <input required type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} />
             </div>
+            {!isLogin && (
+              <div className="input-group">
+                <label>Confirm Password</label>
+                <input
+                  required
+                  type="password"
+                  value={form.confirmPassword}
+                  onChange={e => setForm({ ...form, confirmPassword: e.target.value })}
+                />
+              </div>
+            )}
             
             {isLogin && (
               <div style={{ textAlign: 'right', marginBottom: '10px' }}>

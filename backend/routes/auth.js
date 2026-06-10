@@ -5,6 +5,7 @@ const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const { signupSchema, loginSchema, resetPasswordSchema } = require("../src/validators/auth.validator");
 const pool = require("../config/db");
+const { sendPasswordResetEmail } = require("../utils/mailer");
 
 // 1. Signup
 router.post("/signup", async (req, res) => {
@@ -13,6 +14,7 @@ router.post("/signup", async (req, res) => {
     if (error) return res.status(400).json({ message: error.details[0].message });
 
     const { name, email, password, role } = req.body;
+    const normalizedRole = role || 'employee';
 
     const userExistRes = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     if (userExistRes.rows.length > 0) return res.status(400).json({ message: "Email already exists" });
@@ -21,10 +23,22 @@ router.post("/signup", async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, salt);
 
     const newUserRes = await pool.query(
-      'INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4) RETURNING *',
-      [name, email, hashedPassword, role || 'user']
+      'INSERT INTO users (name, email, password, role, verified) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      [name, email, hashedPassword, normalizedRole, true]
     );
     const newUser = newUserRes.rows[0];
+
+    const defaultDepartmentRes = await pool.query(
+      `SELECT id FROM departments WHERE department_name IN ('Operations', 'IT') ORDER BY department_name = 'Operations' DESC LIMIT 1`
+    );
+    if (defaultDepartmentRes.rows.length) {
+      await pool.query(
+        `INSERT INTO employee_profiles (user_id, department_id, designation)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (user_id) DO NOTHING`,
+        [newUser.id, defaultDepartmentRes.rows[0].id, 'Team Member']
+      );
+    }
 
     // Generate Verification Token (Simulated email)
     const verificationToken = jwt.sign({ id: newUser.id }, process.env.JWT_SECRET || 'fallback_secret', { expiresIn: "1h" });
@@ -32,7 +46,7 @@ router.post("/signup", async (req, res) => {
     console.log(`\n\n[MOCK EMAIL] To verify your account, please click this link:\n${verifyLink}\n\n`);
 
     res.status(201).json({
-      message: "User Registered. Please check your terminal for the verification link.",
+      message: "Account created successfully. You can log in now.",
       user: { id: newUser.id, name: newUser.name, email: newUser.email, role: newUser.role }
     });
   } catch (error) {
@@ -146,17 +160,30 @@ router.post("/forgot-password", async (req, res) => {
     const userRes = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     const user = userRes.rows[0];
     
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) return res.status(404).json({ message: "No account found with that email address." });
 
     const resetToken = crypto.randomBytes(32).toString("hex");
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
 
     await pool.query('INSERT INTO password_reset (user_id, token, expires_at) VALUES ($1, $2, $3)', [user.id, resetToken, expiresAt]);
 
-    const resetLink = `http://localhost:3000/reset-password/${resetToken}`;
-    console.log(`\n\n[MOCK EMAIL] Password Reset requested. Click here to reset:\n${resetLink}\n\n`);
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const resetLink = `${frontendUrl}/reset-password/${resetToken}`;
 
-    res.json({ message: "Password reset link sent to terminal." });
+    // Try sending real email; fall back to console log if not configured
+    if (process.env.EMAIL_USER && process.env.EMAIL_USER !== 'your-email@gmail.com') {
+      try {
+        await sendPasswordResetEmail(email, resetLink);
+        return res.json({ message: `Password reset link has been sent to ${email}. Please check your inbox (and spam folder).` });
+      } catch (mailErr) {
+        console.error('[EMAIL ERROR]', mailErr.message);
+        // Fall through to console log below
+      }
+    }
+
+    // Fallback: log to console (dev mode)
+    console.log(`\n\n[MOCK EMAIL] Password Reset requested. Click here to reset:\n${resetLink}\n\n`);
+    res.json({ message: "Password reset link sent! (Check terminal – email not configured yet)." });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
