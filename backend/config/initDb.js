@@ -52,9 +52,10 @@ async function initDb() {
       );
     `);
 
-    // Ensure role column exists (in case users table already existed without it)
+    // Ensure role and verified columns exist (in case users table already existed without them)
     await client.query(`
       ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(20) DEFAULT 'user';
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS verified BOOLEAN DEFAULT FALSE;
     `);
 
     // 2. Create departments table
@@ -282,31 +283,13 @@ async function initDb() {
       $$ LANGUAGE plpgsql;
     `);
 
-    // Reset the demo tables so the provided company dataset stays deterministic on every restart.
-    await client.query(`
-      TRUNCATE TABLE
-        attendance,
-        asset_history,
-        asset_allocations,
-        assets,
-        notifications,
-        approval_history,
-        leave_applications,
-        leave_balance,
-        employee_skills,
-        employee_profiles,
-        leave_types,
-        skills,
-        departments,
-        users,
-        audit_logs
-      RESTART IDENTITY CASCADE;
-    `);
+    const userCountRes = await client.query("SELECT COUNT(*)::int AS count FROM users");
+    const shouldSeedDemoData = process.env.RESET_DEMO_DATA === "true" || userCountRes.rows[0].count === 0;
 
-    const demoPasswordHash = await bcrypt.hash("123456", 10);
-    await client.query("TRUNCATE TABLE password_reset, refresh_tokens, audit_logs, notifications, asset_history, asset_allocations, assets, attendance, approval_history, leave_applications, leave_balance, leave_types, employee_skills, skills, employee_profiles, departments, users RESTART IDENTITY CASCADE");
+    if (shouldSeedDemoData) {
+      await client.query("TRUNCATE TABLE password_reset, refresh_tokens, audit_logs, notifications, asset_history, asset_allocations, assets, attendance, approval_history, leave_applications, leave_balance, leave_types, employee_skills, skills, employee_profiles, departments, users RESTART IDENTITY CASCADE");
 
-    console.log("Seeding data...");
+      console.log("Seeding data...");
 
     // 1. Departments
     const departments = [
@@ -469,6 +452,9 @@ async function initDb() {
         [3, 4, 2, "2026-04-01", "Allocated"]
       ]
     );
+    } else {
+      console.log("Database already has users; skipping demo seed.");
+    }
 
     await client.query("COMMIT");
     console.log("Database initialized and seeded successfully.");

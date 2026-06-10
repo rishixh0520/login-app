@@ -5,6 +5,7 @@ const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const swaggerUi = require('swagger-ui-express');
 const cors = require("cors");
+const fs = require("fs");
 const path = require("path");
 const initDb = require("./config/initDb");
 const errorHandler = require("./middleware/errorHandler");
@@ -19,7 +20,18 @@ const attendanceRoutes = require("./src/routes/attendance.routes");
 
 const app = express();
 
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+      imgSrc: ["'self'", "data:", "blob:"],
+      connectSrc: ["'self'"]
+    }
+  }
+}));
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // limit each IP to 100 requests per windowMs
@@ -29,6 +41,10 @@ app.use("/api/", apiLimiter);
 
 app.use(cors());
 app.use(express.json());
+
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok" });
+});
 
 // Basic Swagger setup
 const swaggerDocument = {
@@ -72,6 +88,14 @@ app.use("/api/notifications", notificationsRoutes);
 app.use("/api/advanced-reports", advancedReportsRoutes);
 app.use("/api/search", searchRoutes);
 app.use("/api/attendance", attendanceRoutes);
+
+const frontendDistPath = path.join(__dirname, "..", "frontend", "dist");
+if (fs.existsSync(frontendDistPath)) {
+  app.use(express.static(frontendDistPath));
+  app.get(/^(?!\/api).*/, (req, res) => {
+    res.sendFile(path.join(frontendDistPath, "index.html"));
+  });
+}
 
 // Centralized Error Handling Middleware (must be after routes)
 app.use(errorHandler);

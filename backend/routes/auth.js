@@ -3,14 +3,8 @@ const router = express.Router();
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
-const { PrismaClient } = require("../src/generated/prisma");
-const { Pool } = require("pg");
-const { PrismaPg } = require("@prisma/adapter-pg");
 const { signupSchema, loginSchema, resetPasswordSchema } = require("../src/validators/auth.validator");
-
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
+const pool = require("../config/db");
 
 // 1. Signup
 router.post("/signup", async (req, res) => {
@@ -20,23 +14,20 @@ router.post("/signup", async (req, res) => {
 
     const { name, email, password, role } = req.body;
 
-    const userExist = await prisma.users.findUnique({ where: { email } });
-    if (userExist) return res.status(400).json({ message: "Email already exists" });
+    const userExistRes = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    if (userExistRes.rows.length > 0) return res.status(400).json({ message: "Email already exists" });
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    const newUser = await prisma.users.create({
-      data: {
-        name,
-        email,
-        password: hashedPassword,
-        role: role || 'user'
-      }
-    });
+    const newUserRes = await pool.query(
+      'INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4) RETURNING *',
+      [name, email, hashedPassword, role || 'user']
+    );
+    const newUser = newUserRes.rows[0];
 
     // Generate Verification Token (Simulated email)
-    const verificationToken = jwt.sign({ id: newUser.id }, process.env.JWT_SECRET, { expiresIn: "1h" });
+    const verificationToken = jwt.sign({ id: newUser.id }, process.env.JWT_SECRET || 'fallback_secret', { expiresIn: "1h" });
     const verifyLink = `http://localhost:5000/api/auth/verify-email/${verificationToken}`;
     console.log(`\n\n[MOCK EMAIL] To verify your account, please click this link:\n${verifyLink}\n\n`);
 
@@ -45,6 +36,9 @@ router.post("/signup", async (req, res) => {
       user: { id: newUser.id, name: newUser.name, email: newUser.email, role: newUser.role }
     });
   } catch (error) {
+    if (error.code === '28P01' || error.code === 'ECONNREFUSED' || error.message?.includes('password authentication failed')) {
+      return res.status(503).json({ message: "Database unavailable. Check the PostgreSQL credentials in backend/.env." });
+    }
     res.status(500).json({ message: error.message });
   }
 });
@@ -52,11 +46,8 @@ router.post("/signup", async (req, res) => {
 // 2. Verify Email
 router.get("/verify-email/:token", async (req, res) => {
   try {
-    const decoded = jwt.verify(req.params.token, process.env.JWT_SECRET);
-    await prisma.users.update({
-      where: { id: decoded.id },
-      data: { verified: true }
-    });
+    const decoded = jwt.verify(req.params.token, process.env.JWT_SECRET || 'fallback_secret');
+    await pool.query('UPDATE users SET verified = true WHERE id = $1', [decoded.id]);
     res.json({ message: "Email verified successfully! You can now log in." });
   } catch (error) {
     res.status(400).json({ message: "Invalid or expired verification token" });
@@ -70,26 +61,29 @@ router.post("/login", async (req, res) => {
     if (error) return res.status(400).json({ message: error.details[0].message });
 
     const { email, password } = req.body;
-    const user = await prisma.users.findUnique({ where: { email } });
+    const userRes = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    const user = userRes.rows[0];
 
     if (!user) return res.status(400).json({ message: "User not found" });
 
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) return res.status(400).json({ message: "Wrong Password" });
 
+    if (!user.verified) return res.status(403).json({ message: "Please verify your email before logging in." });
+
     const accessToken = jwt.sign(
       { id: user.id, role: user.role, name: user.name, email: user.email },
-      process.env.JWT_SECRET,
-      { expiresIn: "15m" } // 15 mins for access token
+      process.env.JWT_SECRET || 'fallback_secret',
+      { expiresIn: "15m" }
     );
 
     const refreshToken = jwt.sign(
       { id: user.id },
-      process.env.JWT_SECRET,
-      { expiresIn: "30d" } // 30 days for refresh token
+      process.env.JWT_SECRET || 'fallback_secret',
+      { expiresIn: "30d" }
     );
 
-    // (refresh token db insert removed to prevent error)
+    await pool.query('INSERT INTO refresh_tokens (user_id, token) VALUES ($1, $2)', [user.id, refreshToken]);
 
     res.json({
       message: "Login Success",
@@ -98,6 +92,9 @@ router.post("/login", async (req, res) => {
       user: { id: user.id, name: user.name, email: user.email, role: user.role }
     });
   } catch (error) {
+    if (error.code === '28P01' || error.code === 'ECONNREFUSED' || error.message?.includes('password authentication failed')) {
+      return res.status(503).json({ message: "Database unavailable. Check the PostgreSQL credentials in backend/.env." });
+    }
     res.status(500).json({ message: error.message });
   }
 });
@@ -108,15 +105,17 @@ router.post("/refresh-token", async (req, res) => {
     const { token } = req.body;
     if (!token) return res.status(401).json({ message: "Refresh token required" });
 
-    const storedToken = await prisma.refresh_tokens.findFirst({ where: { token } });
+    const tokenRes = await pool.query('SELECT * FROM refresh_tokens WHERE token = $1', [token]);
+    const storedToken = tokenRes.rows[0];
     if (!storedToken) return res.status(403).json({ message: "Invalid refresh token" });
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await prisma.users.findUnique({ where: { id: decoded.id } });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret');
+    const userRes = await pool.query('SELECT * FROM users WHERE id = $1', [decoded.id]);
+    const user = userRes.rows[0];
 
     const newAccessToken = jwt.sign(
       { id: user.id, role: user.role, name: user.name, email: user.email },
-      process.env.JWT_SECRET,
+      process.env.JWT_SECRET || 'fallback_secret',
       { expiresIn: "15m" }
     );
 
@@ -130,7 +129,10 @@ router.post("/refresh-token", async (req, res) => {
 router.post("/logout", async (req, res) => {
   try {
     const { token } = req.body; // refresh token
-    // (refresh token db delete removed to prevent error)
+    // Delete refresh token from database
+    if (token) {
+      await pool.query('DELETE FROM refresh_tokens WHERE token = $1', [token]);
+    }
     res.json({ message: "Logged out successfully" });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -141,16 +143,15 @@ router.post("/logout", async (req, res) => {
 router.post("/forgot-password", async (req, res) => {
   try {
     const { email } = req.body;
-    const user = await prisma.users.findUnique({ where: { email } });
+    const userRes = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    const user = userRes.rows[0];
     
     if (!user) return res.status(404).json({ message: "User not found" });
 
     const resetToken = crypto.randomBytes(32).toString("hex");
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
 
-    await prisma.password_reset.create({
-      data: { user_id: user.id, token: resetToken, expires_at: expiresAt }
-    });
+    await pool.query('INSERT INTO password_reset (user_id, token, expires_at) VALUES ($1, $2, $3)', [user.id, resetToken, expiresAt]);
 
     const resetLink = `http://localhost:3000/reset-password/${resetToken}`;
     console.log(`\n\n[MOCK EMAIL] Password Reset requested. Click here to reset:\n${resetLink}\n\n`);
@@ -169,22 +170,18 @@ router.post("/reset-password", async (req, res) => {
 
     const { token, newPassword } = req.body;
 
-    const resetRecord = await prisma.password_reset.findFirst({
-      where: { token, expires_at: { gt: new Date() } }
-    });
+    const resetRes = await pool.query('SELECT * FROM password_reset WHERE token = $1 AND expires_at > NOW()', [token]);
+    const resetRecord = resetRes.rows[0];
 
     if (!resetRecord) return res.status(400).json({ message: "Invalid or expired reset token" });
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
 
-    await prisma.users.update({
-      where: { id: resetRecord.user_id },
-      data: { password: hashedPassword }
-    });
+    await pool.query('UPDATE users SET password = $1 WHERE id = $2', [hashedPassword, resetRecord.user_id]);
 
     // Delete used token
-    await prisma.password_reset.delete({ where: { id: resetRecord.id } });
+    await pool.query('DELETE FROM password_reset WHERE id = $1', [resetRecord.id]);
 
     res.json({ message: "Password has been successfully reset" });
   } catch (error) {
