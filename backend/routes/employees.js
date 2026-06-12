@@ -47,7 +47,7 @@ router.get("/", authMiddleware, async (req, res) => {
       ORDER BY ep.created_at DESC
     `;
     const employees = (await pool.query(query)).rows;
-    
+
     for (let emp of employees) {
       const skillsRes = await pool.query(`SELECT s.id, s.skill_name FROM employee_skills es INNER JOIN skills s ON es.skill_id = s.id WHERE es.employee_id = $1`, [emp.id]);
       emp.skills = skillsRes.rows;
@@ -55,6 +55,18 @@ router.get("/", authMiddleware, async (req, res) => {
       emp.images = imagesRes.rows;
     }
     res.json(employees);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+router.get("/users/available", authMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT id, name, email FROM users 
+      WHERE id NOT IN (SELECT user_id FROM employee_profiles WHERE user_id IS NOT NULL)
+    `);
+    res.json(result.rows);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -155,16 +167,6 @@ router.delete("/:id", authMiddleware, async (req, res) => {
   }
 });
 
-router.get("/users/available", authMiddleware, async (req, res) => {
-  try {
-    const result = await pool.query(`
-      SELECT id, name, email FROM users 
-      WHERE id NOT IN (SELECT user_id FROM employee_profiles)
-    `);
-    res.json(result.rows);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
+
 
 module.exports = router;

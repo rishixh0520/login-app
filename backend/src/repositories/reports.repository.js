@@ -35,6 +35,58 @@ class ReportsRepository {
     const result = await pool.query(query);
     return result.rows;
   }
+
+  async getAttendanceReportData() {
+    const query = `
+      SELECT u.name, d.department_name, a.date, a.clock_in, a.clock_out, a.status
+      FROM attendance a
+      JOIN employee_profiles ep ON a.employee_id = ep.id
+      JOIN users u ON ep.user_id = u.id
+      JOIN departments d ON ep.department_id = d.id
+      ORDER BY a.date DESC
+      LIMIT 1000
+    `;
+    const result = await pool.query(query);
+    return result.rows;
+  }
+
+  async getPayrollReportData() {
+    const query = `
+      SELECT u.name, d.department_name, s.salary_month, s.basic_salary, s.gross_salary, s.net_salary
+      FROM salaries s
+      JOIN employee_profiles ep ON s.employee_id = ep.id
+      JOIN users u ON ep.user_id = u.id
+      JOIN departments d ON ep.department_id = d.id
+      ORDER BY s.salary_month DESC
+      LIMIT 1000
+    `;
+    const result = await pool.query(query);
+    return result.rows;
+  }
+
+  async getDepartmentReportData() {
+    const query = `
+      SELECT d.department_name, COUNT(ep.id) as total_employees, AVG(ep.salary) as average_salary, SUM(ep.salary) as total_payroll
+      FROM departments d
+      LEFT JOIN employee_profiles ep ON d.id = ep.department_id
+      GROUP BY d.department_name
+    `;
+    const result = await pool.query(query);
+    return result.rows;
+  }
+
+  async getPerformanceReportData() {
+    const query = `
+      SELECT u.name, d.department_name, ep.designation, ep.performance_rating
+      FROM employee_profiles ep
+      JOIN users u ON ep.user_id = u.id
+      JOIN departments d ON ep.department_id = d.id
+      WHERE ep.performance_rating IS NOT NULL
+      ORDER BY ep.performance_rating DESC
+    `;
+    const result = await pool.query(query);
+    return result.rows;
+  }
 }
 
 module.exports = new ReportsRepository();

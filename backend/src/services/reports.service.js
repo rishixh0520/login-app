@@ -11,6 +11,14 @@ class ReportsService {
         return await reportsRepository.getAssetReportData();
       case 'leaves':
         return await reportsRepository.getLeaveReportData();
+      case 'attendance':
+        return await reportsRepository.getAttendanceReportData();
+      case 'payroll':
+        return await reportsRepository.getPayrollReportData();
+      case 'department':
+        return await reportsRepository.getDepartmentReportData();
+      case 'performance':
+        return await reportsRepository.getPerformanceReportData();
       default:
         throw { statusCode: 400, message: 'Invalid report type', isOperational: true };
     }

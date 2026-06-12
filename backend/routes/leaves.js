@@ -90,6 +90,12 @@ router.post("/apply", authMiddleware, async (req, res) => {
       [employeeRes.rows[0].id, leave_type_id, from_date, to_date, total_days, reason.trim()]
     );
 
+    await client.query("INSERT INTO notifications (user_id, title, message) VALUES ($1, $2, $3)", 
+      [req.user.id, 'Leave Submitted', `Your leave application for ${total_days} days has been submitted successfully.`]
+    );
+
+    await client.query("INSERT INTO notifications (user_id, title, message) SELECT id, 'Leave Request', 'A new leave request requires your review.' FROM users WHERE role IN ('admin', 'hr', 'manager')");
+
     await client.query("COMMIT");
     res.status(201).json(insertRes.rows[0]);
   } catch (error) {

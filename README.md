@@ -9,8 +9,10 @@ A full-stack login application with user authentication, featuring a React front
 - **File Upload**: Support for user profile picture uploads
 - **CORS Enabled**: Cross-origin resource sharing configured for frontend-backend communication
 - **Modern UI**: Built with React and Vite for fast development and optimized builds
-- **Database**: PostgreSQL integration for persistent data storage
-- **Apply for leave**: admin approves or denies the request.
+- **Executive Dashboard:** Get a massive top-down view of company health, including charts for employee growth, payroll trends, performance distribution, and gender diversity.
+- **Manager Insights:** Actionable intelligence surfacing Top Performers, Highest Paid Employees, Most Leaves Taken, and Recent Joiners.
+- **Department Dashboards:** Isolated dynamic analytics for specific departments (HR, IT, Finance, etc.).
+- **Data Export:** Export detailed Employee, Payroll, Attendance, and Performance reports into PDF, CSV, and Excel formats.
 
 ## Tech Stack
 

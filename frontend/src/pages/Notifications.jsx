@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
-import { Bell } from 'lucide-react';
+import { Bell, Check, Inbox } from 'lucide-react';
+import AnimatedCard from '../components/AnimatedCard';
+import { motion, AnimatePresence } from 'framer-motion';
+import toast from 'react-hot-toast';
 
 export default function Notifications() {
   const [notifications, setNotifications] = useState([]);
@@ -21,51 +24,91 @@ export default function Notifications() {
   const handleMarkAsRead = async (id) => {
     try {
       await api.put(`/notifications/${id}/read`);
-      loadNotifications();
+      setNotifications(notifications.map(n => n.id === id ? { ...n, is_read: true } : n));
+      toast.success('Marked as read');
     } catch (error) {
-      console.error(error);
+      toast.error('Failed to mark as read');
     }
   };
 
+  const markAllAsRead = async () => {
+    try {
+      // Assuming a hypothetical endpoint or just doing it individually
+      const unread = notifications.filter(n => !n.is_read);
+      await Promise.all(unread.map(n => api.put(`/notifications/${n.id}/read`)));
+      loadNotifications();
+      toast.success('All marked as read');
+    } catch (e) {
+      toast.error('Action failed');
+    }
+  };
+
+  const unreadCount = notifications.filter(n => !n.is_read).length;
+
   return (
-    <div className="page-container">
-      <header className="page-header">
+    <div>
+      <header className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
           <h1>Notifications</h1>
           <p>Updates on your assets and workflow actions</p>
         </div>
+        {unreadCount > 0 && (
+          <button className="btn-secondary" onClick={markAllAsRead} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Check size={16} /> Mark all read
+          </button>
+        )}
       </header>
 
-      <div className="card">
+      <AnimatedCard style={{ padding: 0, overflow: 'hidden' }}>
         {notifications.length > 0 ? (
-          <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {notifications.map(n => (
-              <li key={n.id} style={{ 
-                padding: '1rem', 
-                border: '1px solid var(--border)', 
-                borderRadius: '8px', 
-                backgroundColor: n.is_read ? 'transparent' : 'var(--bg-secondary)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-              }}>
-                <div>
-                  <h4 style={{ margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <Bell size={16} /> {n.title}
-                  </h4>
-                  <p style={{ margin: 0, color: 'var(--text-secondary)' }}>{n.message}</p>
-                  <small style={{ color: 'var(--text-tertiary)', marginTop: '0.5rem', display: 'block' }}>{new Date(n.created_at).toLocaleString()}</small>
-                </div>
-                {!n.is_read && (
-                  <button className="btn-primary btn-small" onClick={() => handleMarkAsRead(n.id)}>Mark as read</button>
-                )}
-              </li>
-            ))}
-          </ul>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <AnimatePresence>
+              {notifications.map((n, index) => (
+                <motion.div 
+                  key={n.id}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  style={{ 
+                    padding: '20px', 
+                    borderBottom: '1px solid var(--border-light)', 
+                    background: n.is_read ? 'transparent' : 'var(--primary-light)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                    gap: '16px',
+                    transition: 'background 0.3s'
+                  }}
+                >
+                  <div style={{ display: 'flex', gap: '16px', flex: 1 }}>
+                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: n.is_read ? 'var(--panel-bg)' : 'var(--primary)', color: n.is_read ? 'var(--text-muted)' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: n.is_read ? '1px solid var(--border-color)' : 'none' }}>
+                      <Bell size={18} />
+                    </div>
+                    <div>
+                      <h4 style={{ margin: '0 0 4px 0', fontSize: '1rem', color: n.is_read ? 'var(--text-main)' : 'var(--primary)' }}>
+                        {n.title}
+                      </h4>
+                      <p style={{ margin: '0 0 8px 0', color: 'var(--text-muted)', fontSize: '0.95rem' }}>{n.message}</p>
+                      <small style={{ color: 'var(--text-tertiary)', fontSize: '0.8rem' }}>{new Date(n.created_at).toLocaleString()}</small>
+                    </div>
+                  </div>
+                  {!n.is_read && (
+                    <button className="btn-primary" style={{ padding: '6px 12px', fontSize: '0.8rem' }} onClick={() => handleMarkAsRead(n.id)}>Mark Read</button>
+                  )}
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
         ) : (
-          <p>No notifications.</p>
+          <div style={{ padding: '4rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+            <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'var(--panel-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px', border: '1px solid var(--border-color)' }}>
+              <Inbox size={32} style={{ color: 'var(--text-soft)' }} />
+            </div>
+            <h3 style={{ margin: '0 0 8px 0', color: 'var(--text-main)' }}>You're all caught up!</h3>
+            <p style={{ margin: 0 }}>No new notifications right now.</p>
+          </div>
         )}
-      </div>
+      </AnimatedCard>
     </div>
   );
 }

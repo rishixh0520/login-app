@@ -83,6 +83,10 @@ async function initDb() {
         address TEXT,
         designation VARCHAR(100),
         salary NUMERIC(10,2),
+        gender VARCHAR(20),
+        performance_rating INT,
+        join_date DATE,
+        exit_date DATE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
@@ -248,6 +252,25 @@ async function initDb() {
       );
     `);
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS salaries (
+        id SERIAL PRIMARY KEY,
+        employee_id INT REFERENCES employee_profiles(id) ON DELETE CASCADE,
+        salary_month VARCHAR(20) NOT NULL,
+        basic_salary NUMERIC(10,2) NOT NULL,
+        hra NUMERIC(10,2) NOT NULL,
+        da NUMERIC(10,2) NOT NULL,
+        bonus NUMERIC(10,2) DEFAULT 0,
+        gross_salary NUMERIC(10,2) NOT NULL,
+        tds NUMERIC(10,2) NOT NULL,
+        esi NUMERIC(10,2) NOT NULL,
+        pf NUMERIC(10,2) NOT NULL,
+        net_salary NUMERIC(10,2) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (employee_id, salary_month)
+      );
+    `);
+
     // Create View: employee_summary
     await client.query(`
       CREATE OR REPLACE VIEW employee_summary AS
@@ -287,7 +310,7 @@ async function initDb() {
     const shouldSeedDemoData = process.env.RESET_DEMO_DATA === "true" || userCountRes.rows[0].count === 0;
 
     if (shouldSeedDemoData) {
-      await client.query("TRUNCATE TABLE password_reset, refresh_tokens, audit_logs, notifications, asset_history, asset_allocations, assets, attendance, approval_history, leave_applications, leave_balance, leave_types, employee_skills, skills, employee_profiles, departments, users RESTART IDENTITY CASCADE");
+      await client.query("TRUNCATE TABLE salaries, password_reset, refresh_tokens, audit_logs, notifications, asset_history, asset_allocations, assets, attendance, approval_history, leave_applications, leave_balance, leave_types, employee_skills, skills, employee_profiles, departments, users RESTART IDENTITY CASCADE");
 
       console.log("Seeding data...");
 
@@ -306,9 +329,10 @@ async function initDb() {
 
     // 2. Users (Adding verified = true for seeded users)
     const users = [
-      ["Pranay Gupta", "pranay@isoftzone.com", await bcrypt.hash("123456", 10), "admin", true],
+      ["Rishi Dhakad", "rishixh0520@gmail.com", await bcrypt.hash("12345678", 10), "admin", true],
       ["Rahul Sharma", "rahul@isoftzone.com", await bcrypt.hash("123456", 10), "manager", true],
       ["Priya Verma", "priya@isoftzone.com", await bcrypt.hash("123456", 10), "hr", true],
+      ["Pranay Gupta", "pranay@isoftzone.com", await bcrypt.hash("123456", 10), "employee", true],
       ["Amit Patel", "amit@isoftzone.com", await bcrypt.hash("123456", 10), "employee", true],
       ["Neha Jain", "neha@isoftzone.com", await bcrypt.hash("123456", 10), "employee", true],
       ["Rohit Singh", "rohit@isoftzone.com", await bcrypt.hash("123456", 10), "employee", true],
@@ -322,18 +346,18 @@ async function initDb() {
     await bulkInsert(
       client,
       "employee_profiles",
-      ["user_id", "department_id", "phone", "address", "designation", "salary"],
+      ["user_id", "department_id", "phone", "address", "designation", "salary", "gender", "performance_rating", "join_date"],
       [
-        [1, 1, "9876543210", "Indore", "Director", 150000],
-        [2, 1, "9876543211", "Indore", "Project Manager", 85000],
-        [3, 3, "9876543212", "Indore", "HR Manager", 70000],
-        [4, 1, "9876543213", "Indore", "React Developer", 45000],
-        [5, 1, "9876543214", "Indore", "Node Developer", 50000],
-        [6, 2, "9876543215", "Indore", "QA Engineer", 40000],
-        [7, 5, "9876543216", "Indore", "Marketing Executive", 35000],
-        [8, 6, "9876543217", "Indore", "Sales Executive", 38000],
-        [9, 8, "9876543218", "Indore", "Support Engineer", 32000],
-        [10, 4, "9876543219", "Indore", "Accountant", 42000],
+        [1, 1, "9876543210", "Indore", "Director", 150000, "Male", 5, "2020-01-15"],
+        [2, 1, "9876543211", "Indore", "Project Manager", 85000, "Male", 4, "2021-03-10"],
+        [3, 3, "9876543212", "Indore", "HR Manager", 70000, "Female", 5, "2021-06-20"],
+        [4, 1, "9876543213", "Indore", "React Developer", 45000, "Male", 4, "2023-01-05"],
+        [5, 1, "9876543214", "Indore", "Node Developer", 50000, "Male", 3, "2022-11-12"],
+        [6, 2, "9876543215", "Indore", "QA Engineer", 40000, "Female", 4, "2023-04-18"],
+        [7, 5, "9876543216", "Indore", "Marketing Executive", 35000, "Male", 3, "2024-02-01"],
+        [8, 6, "9876543217", "Indore", "Sales Executive", 38000, "Female", 5, "2023-08-22"],
+        [9, 8, "9876543218", "Indore", "Support Engineer", 32000, "Male", 3, "2024-05-10"],
+        [10, 4, "9876543219", "Indore", "Accountant", 42000, "Female", 4, "2022-09-30"],
       ]
     );
 
