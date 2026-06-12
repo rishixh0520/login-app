@@ -124,18 +124,21 @@ if (fs.existsSync(frontendDistPath)) {
 // Centralized Error Handling Middleware (must be after routes)
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 5000;
+// Only start listening when run directly (not when imported by Vercel serverless)
+if (require.main === module) {
+  const PORT = process.env.PORT || 5000;
+  initDb()
+    .then(() => {
+      app.listen(PORT, () => {
+        logger.info(`Server running on port ${PORT}`);
+      });
+    })
+    .catch((err) => {
+      logger.error("Failed to initialize database", { error: err });
+      app.listen(PORT, () => {
+        logger.info(`Server running on port ${PORT} (DB offline)`);
+      });
+    });
+}
 
-// Initialize Database before starting the server
-initDb()
-  .then(() => {
-    app.listen(PORT, () => {
-      logger.info(`Server running on port ${PORT}`);
-    });
-  })
-  .catch((err) => {
-    logger.error("Failed to initialize database", { error: err });
-    app.listen(PORT, () => {
-      logger.info(`Server running on port ${PORT} (DB offline)`);
-    });
-  });
+module.exports = app;
