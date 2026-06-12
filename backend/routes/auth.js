@@ -6,6 +6,7 @@ const crypto = require("crypto");
 const { signupSchema, loginSchema, resetPasswordSchema } = require("../src/validators/auth.validator");
 const pool = require("../config/db");
 const { sendPasswordResetEmail } = require("../utils/mailer");
+const logger = require("../utils/logger");
 
 // 1. Signup
 router.post("/signup", async (req, res) => {
@@ -43,7 +44,7 @@ router.post("/signup", async (req, res) => {
     // Generate Verification Token (Simulated email)
     const verificationToken = jwt.sign({ id: newUser.id }, process.env.JWT_SECRET || 'fallback_secret', { expiresIn: "1h" });
     const verifyLink = `http://localhost:5000/api/auth/verify-email/${verificationToken}`;
-    console.log(`\n\n[MOCK EMAIL] To verify your account, please click this link:\n${verifyLink}\n\n`);
+    logger.info(`[MOCK EMAIL] Verification link generated for ${email}: ${verifyLink}`);
 
     res.status(201).json({
       message: "Account created successfully. You can log in now.",
@@ -176,13 +177,13 @@ router.post("/forgot-password", async (req, res) => {
         await sendPasswordResetEmail(email, resetLink);
         return res.json({ message: `Password reset link has been sent to ${email}. Please check your inbox (and spam folder).` });
       } catch (mailErr) {
-        console.error('[EMAIL ERROR]', mailErr.message);
+        logger.error('[EMAIL ERROR]', mailErr.message);
         // Fall through to console log below
       }
     }
 
     // Fallback: log to console (dev mode)
-    console.log(`\n\n[MOCK EMAIL] Password Reset requested. Click here to reset:\n${resetLink}\n\n`);
+    logger.info(`[MOCK EMAIL] Password Reset link generated for ${email}: ${resetLink}`);
     res.json({ message: "Password reset link sent! (Check terminal – email not configured yet)." });
   } catch (error) {
     res.status(500).json({ message: error.message });

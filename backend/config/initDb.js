@@ -1,5 +1,6 @@
 const bcrypt = require("bcrypt");
 const pool = require("./db");
+const logger = require("../utils/logger");
 
 async function bulkInsert(client, table, columns, rows) {
   if (!rows.length) return;
@@ -24,7 +25,7 @@ async function bulkInsert(client, table, columns, rows) {
 async function initDb() {
   const client = await pool.connect();
   try {
-    console.log("Initializing database tables...");
+    logger.info("Initializing database tables...");
     await client.query("BEGIN");
 
     // 1. Create/alter users table
@@ -312,7 +313,7 @@ async function initDb() {
     if (shouldSeedDemoData) {
       await client.query("TRUNCATE TABLE salaries, password_reset, refresh_tokens, audit_logs, notifications, asset_history, asset_allocations, assets, attendance, approval_history, leave_applications, leave_balance, leave_types, employee_skills, skills, employee_profiles, departments, users RESTART IDENTITY CASCADE");
 
-      console.log("Seeding data...");
+      logger.info("Seeding data...");
 
     // 1. Departments
     const departments = [
@@ -477,14 +478,14 @@ async function initDb() {
       ]
     );
     } else {
-      console.log("Database already has users; skipping demo seed.");
+      logger.info("Database already has users; skipping demo seed.");
     }
 
     await client.query("COMMIT");
-    console.log("Database initialized and seeded successfully.");
+    logger.info("Database initialized and seeded successfully.");
   } catch (error) {
     await client.query("ROLLBACK");
-    console.error("Error initializing database:", error);
+    logger.error("Error initializing database:", error);
     throw error;
   } finally {
     client.release();

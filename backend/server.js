@@ -53,7 +53,7 @@ app.use(cors({
     if (process.env.NODE_ENV !== 'production') return callback(null, true);
     // No origin = same-origin or curl
     if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin) || origin.endsWith('.onrender.com')) {
+    if (allowedOrigins.includes(origin) || origin.endsWith('.onrender.com') || origin.endsWith('.vercel.app')) {
       return callback(null, true);
     }
     callback(new Error('Not allowed by CORS'));
@@ -131,14 +131,11 @@ initDb()
   .then(() => {
     app.listen(PORT, () => {
       logger.info(`Server running on port ${PORT}`);
-      console.log(`Server running on port ${PORT}`);
     });
   })
   .catch((err) => {
     logger.error("Failed to initialize database", { error: err });
-    console.error("Failed to initialize database, starting server anyway...", err);
     app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT} (DB offline)`);
+      logger.info(`Server running on port ${PORT} (DB offline)`);
     });
   });
-
