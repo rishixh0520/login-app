@@ -121,6 +121,22 @@ router.get('/executive', authMiddleware, async (req, res) => {
       LIMIT 6
     `);
 
+    // Format payroll trend to ensure last 6 months always exist
+    const last6Months = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(currentYear, currentMonth - 1 - i, 1);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      last6Months.push({ name: `${yyyy}-${mm}`, value: 0 });
+    }
+
+    payrollTrend.rows.forEach(r => {
+      const match = last6Months.find(m => m.name === r.month);
+      if (match) {
+        match.value = parseFloat(r.total_payroll) || 0;
+      }
+    });
+
     res.json({
       kpis: {
         totalEmployees: activeEmployees,
@@ -143,7 +159,7 @@ router.get('/executive', authMiddleware, async (req, res) => {
         performanceDistribution: perfDist.rows.map(r => ({ name: r.name, value: parseInt(r.value) })),
         genderDiversity: genderDist.rows.map(r => ({ name: r.name, value: parseInt(r.value) })),
         experienceDistribution: expDist.rows.map(r => ({ name: r.name, value: parseInt(r.value) })),
-        payrollCostTrend: payrollTrend.rows.reverse().map(r => ({ name: r.month, value: parseFloat(r.total_payroll) }))
+        payrollCostTrend: last6Months
       }
     });
 
