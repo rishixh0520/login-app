@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../api';
 import {
   CheckCircle, Calendar, Search, Edit3, X, Save,
@@ -185,15 +185,15 @@ export default function Attendance() {
   const greeting = getGreeting();
   const GreetIcon = greeting.icon;
 
-  const myColumns = [
+  const myColumns = useMemo(() => [
     { header: 'Date', render: (row) => new Date(row.date).toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' }) },
     { header: 'Check In', render: (row) => <strong style={{ color: 'var(--success)' }}>{formatTime(row.clock_in)}</strong> },
     { header: 'Check Out', render: (row) => <strong style={{ color: 'var(--warning)' }}>{formatTime(row.clock_out)}</strong> },
     { header: 'Hours', render: (row) => { const hrs = calcHours(row.clock_in, row.clock_out); return hrs ? `${hrs}h` : '—'; } },
     { header: 'Status', render: (row) => <span className={`status-badge ${row.status === 'Present' ? 'approved' : row.status === 'Half-Day' ? 'pending' : 'rejected'}`}>{row.status}</span> }
-  ];
+  ], []);
 
-  const adminColumns = [
+  const adminColumns = useMemo(() => [
     { header: 'Date', render: (row) => new Date(row.date).toLocaleDateString([], { day: '2-digit', month: 'short' }) },
     { header: 'Employee', accessor: 'name', render: (row) => <strong>{row.name}</strong> },
     { header: 'Check In', render: (row) => <span style={{ color: 'var(--success)', fontWeight: 600 }}>{formatTime(row.clock_in)}</span> },
@@ -206,7 +206,7 @@ export default function Attendance() {
         setEditData({ clock_in: formatTimeLocal(row.clock_in), clock_out: formatTimeLocal(row.clock_out), status: row.status, remarks: row.remarks || '' });
       }}><Edit3 size={14} /></button>
     )}
-  ];
+  ], []);
 
   return (
     <div>

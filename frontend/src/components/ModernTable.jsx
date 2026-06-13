@@ -1,21 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-export default function ModernTable({ columns, data = [], searchable = true, itemsPerPage = 10 }) {
+const ModernTable = React.memo(({ columns, data = [], searchable = true, itemsPerPage = 10 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
 
   const safeData = Array.isArray(data) ? data : [];
   
-  const filteredData = safeData.filter(row => 
-    Object.values(row).some(val => 
-      String(val).toLowerCase().includes(searchTerm.toLowerCase())
-    )
-  );
+  const filteredData = useMemo(() => {
+    if (!searchTerm) return safeData;
+    const lowerSearchTerm = searchTerm.toLowerCase();
+    return safeData.filter(row => 
+      Object.values(row).some(val => 
+        String(val).toLowerCase().includes(lowerSearchTerm)
+      )
+    );
+  }, [safeData, searchTerm]);
 
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
-  const currentData = filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  
+  const currentData = useMemo(() => {
+    return filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  }, [filteredData, currentPage, itemsPerPage]);
 
   return (
     <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -93,4 +100,6 @@ export default function ModernTable({ columns, data = [], searchable = true, ite
       )}
     </div>
   );
-}
+});
+
+export default ModernTable;

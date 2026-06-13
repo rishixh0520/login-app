@@ -48,12 +48,44 @@ router.get("/", authMiddleware, async (req, res) => {
     `;
     const employees = (await pool.query(query)).rows;
 
-    for (let emp of employees) {
-      const skillsRes = await pool.query(`SELECT s.id, s.skill_name FROM employee_skills es INNER JOIN skills s ON es.skill_id = s.id WHERE es.employee_id = $1`, [emp.id]);
-      emp.skills = skillsRes.rows;
-      const imagesRes = await pool.query(`SELECT id, image_url FROM employee_images WHERE employee_id = $1`, [emp.id]);
-      emp.images = imagesRes.rows;
+    if (employees.length > 0) {
+      const employeeIds = employees.map(emp => emp.id);
+
+      // Fetch all skills and images in just 2 parallel queries using ANY()
+      const [skillsRes, imagesRes] = await Promise.all([
+        pool.query(`
+          SELECT es.employee_id, s.id, s.skill_name 
+          FROM employee_skills es 
+          INNER JOIN skills s ON es.skill_id = s.id 
+          WHERE es.employee_id = ANY($1::int[])
+        `, [employeeIds]),
+        pool.query(`
+          SELECT employee_id, id, image_url 
+          FROM employee_images 
+          WHERE employee_id = ANY($1::int[])
+        `, [employeeIds])
+      ]);
+
+      // Group by employee_id for quick lookup
+      const skillsMap = {};
+      skillsRes.rows.forEach(row => {
+        if (!skillsMap[row.employee_id]) skillsMap[row.employee_id] = [];
+        skillsMap[row.employee_id].push({ id: row.id, skill_name: row.skill_name });
+      });
+
+      const imagesMap = {};
+      imagesRes.rows.forEach(row => {
+        if (!imagesMap[row.employee_id]) imagesMap[row.employee_id] = [];
+        imagesMap[row.employee_id].push({ id: row.id, image_url: row.image_url });
+      });
+
+      // Attach to employees
+      for (let emp of employees) {
+        emp.skills = skillsMap[emp.id] || [];
+        emp.images = imagesMap[emp.id] || [];
+      }
     }
+
     res.json(employees);
   } catch (error) {
     res.status(500).json({ message: error.message });
