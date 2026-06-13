@@ -199,6 +199,30 @@ router.delete("/:id", authMiddleware, async (req, res) => {
   }
 });
 
+router.put("/:id/performance", authMiddleware, async (req, res) => {
+  if (req.user.role !== "admin") {
+    return res.status(403).json({ message: "Forbidden: Only admins can update performance ratings." });
+  }
 
+  const { id } = req.params;
+  const { performance_rating, performance_remark } = req.body;
+
+  try {
+    const result = await pool.query(
+      `UPDATE employee_profiles 
+       SET performance_rating = $1, performance_remark = $2 
+       WHERE id = $3 RETURNING *`,
+      [performance_rating || null, performance_remark || null, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "Employee not found" });
+    }
+
+    res.json({ message: "Performance updated successfully", data: result.rows[0] });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
 
 module.exports = router;

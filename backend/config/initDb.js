@@ -92,6 +92,11 @@ async function initDb() {
       );
     `);
 
+    // Ensure performance_remark column exists
+    await client.query(`
+      ALTER TABLE employee_profiles ADD COLUMN IF NOT EXISTS performance_remark TEXT;
+    `);
+
     // 4. Create employee images table
     await client.query(`
       CREATE TABLE IF NOT EXISTS employee_images(
